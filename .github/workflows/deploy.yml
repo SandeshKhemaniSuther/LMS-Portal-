@@ -1,0 +1,63 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: bcmath, ctype, fileinfo, json, mbstring, openssl, pdo, tokenizer, xml
+        coverage: none
+        
+    - name: Copy environment file
+      run: |
+        cd frontend
+        cp .env.example .env
+        
+    - name: Install PHP dependencies
+      run: |
+        cd frontend
+        composer install --no-dev --optimize-autoloader
+        
+    - name: Install Node dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Build frontend assets
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Deploy to Netlify
+      uses: nwtgck/actions-netlify@v2
+      with:
+        publish-dir: 'frontend/public'
+        production-branch: main
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        deploy-message: "Deploy from GitHub Actions"
+        enable-pull-request-comment: false
+        enable-commit-comment: false
+        overwrites-pull-request-comment: false
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
